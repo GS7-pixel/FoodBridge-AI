@@ -8,6 +8,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 app.use(cors());
@@ -80,48 +81,60 @@ function computeFallbackMatches(donation, ngos) {
 
 // POST /api/match
 app.post('/api/match', async (req, res) => {
-  const { donation, ngos, role = 'admin', ngoId } = req.body;
-
-  if (!donation || !ngos || !Array.isArray(ngos) || ngos.length === 0) {
-    return res.status(400).json({
-      error: 'Missing donation or ngos array in request body',
-    });
-  }
-
-  // 1. Role enforcement: Donors cannot view the NGO match list directly
-  if (role === 'donor') {
-    return res.json({
-      matches: [],
-      isFallback: false,
-      message: 'Donors cannot view NGO matches directly',
-    });
-  }
-
-  // 2. Role enforcement: NGO workers can ONLY see their own NGO
-  let candidateNGOs = ngos;
-  const isNgoRole = role === 'ngo';
-  if (isNgoRole) {
-    if (!ngoId) {
-      return res.status(400).json({ error: 'ngoId is required for role ngo', matches: [] });
-    }
-    candidateNGOs = ngos.filter(n => (n.id === ngoId || n.ngoId === ngoId)).slice(0, 1);
-    if (candidateNGOs.length === 0) {
-      return res.json({ matches: [], isFallback: false });
-    }
-  }
-
-  // If no Gemini API key configured, use transparent fallback
-  if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '' || GEMINI_API_KEY.includes('your_gemini_api_key')) {
-    console.log('[FoodBridge Match] No GEMINI_API_KEY detected. Using Basic match fallback.');
-    const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
-    return res.json({
-      matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
-      isFallback: true,
-      fallbackText: 'Basic match',
-    });
-  }
-
   try {
+    const { donation, ngos, role = 'admin', ngoId } = req.body || {};
+
+    if (!donation || !ngos || !Array.isArray(ngos) || ngos.length === 0) {
+      const fallbackMatches = computeFallbackMatches(donation || {}, ngos || []);
+      return res.json({
+        matches: fallbackMatches.slice(0, 3),
+        fallback: true,
+        isFallback: true,
+        fallbackText: 'Basic match',
+      });
+    }
+
+    // 1. Role enforcement: Donors cannot view the NGO match list directly
+    if (role === 'donor') {
+      return res.json({
+        matches: [],
+        fallback: false,
+        isFallback: false,
+        message: 'Donors cannot view NGO matches directly',
+      });
+    }
+
+    // 2. Role enforcement: NGO workers can ONLY see their own NGO
+    let candidateNGOs = ngos;
+    const isNgoRole = role === 'ngo';
+    if (isNgoRole) {
+      if (!ngoId) {
+        candidateNGOs = ngos.slice(0, 1);
+      } else {
+        candidateNGOs = ngos.filter(n => (n.id === ngoId || n.ngoId === ngoId)).slice(0, 1);
+        if (candidateNGOs.length === 0 && ngos.length > 0) {
+          candidateNGOs = [ngos[0]];
+        }
+      }
+    }
+
+    // Helper for rule-based fallback response
+    const returnFallback = () => {
+      const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
+      return res.json({
+        matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
+        fallback: true,
+        isFallback: true,
+        fallbackText: 'Basic match',
+      });
+    };
+
+    // If no Gemini API key configured, use transparent fallback
+    if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '' || GEMINI_API_KEY.includes('your_gemini_api_key')) {
+      console.log('[FoodBridge Match] No GEMINI_API_KEY detected. Using Basic match fallback.');
+      return returnFallback();
+    }
+
     const hoursLeft = donation.hoursLeft != null
       ? donation.hoursLeft
       : donation.pickupDeadline
@@ -141,7 +154,7 @@ app.post('/api/match', async (req, res) => {
       ? `You are FoodBridge AI Match. Evaluate how well this food donation fits the specified NGO.
 Consider food type compatibility, quantity vs capacity, locality distance, and urgency.
 Return JSON ONLY in this schema:
-{"matches":[{"ngoId":"${ngoSummary[0].ngoId}","score":0-100,"reason":"one short sentence explaining how well this fits this NGO"}]}`
+{"matches":[{"ngoId":"${ngoSummary[0]?.ngoId || ''}","score":0-100,"reason":"one short sentence explaining how well this fits this NGO"}]}`
       : `You are FoodBridge AI Match, an intelligent dispatch engine matching surplus food donations with the best local NGOs in Delhi NCR & Gurugram.
 
 Instructions:
@@ -165,7 +178,7 @@ Donation details:
 - Urgency: ${donation.urgency || 'medium'}
 
 NGO:
-${JSON.stringify(ngoSummary[0], null, 2)}`
+${JSON.stringify(ngoSummary[0] || {}, null, 2)}`
       : `Match this donation to the top 3 NGOs:
 
 Donation details:
@@ -194,72 +207,90 @@ ${JSON.stringify(ngoSummary, null, 2)}`;
       },
     };
 
-    console.log(`[FoodBridge Match] Calling Gemini API (${GEMINI_MODEL}) for role=${role}, donation=${donation.foodName}...`);
+    // Helper to call Gemini with an 8-second timeout
+    const callGeminiModel = async (modelName) => {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY.trim()}`;
+      const response = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(promptPayload),
+        signal: AbortSignal.timeout(8000), // 8-second timeout
+      });
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY.trim()}`;
+      if (!response.ok) {
+        throw new Error(`HTTP_${response.status}`);
+      }
 
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(promptPayload),
-    });
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
+        throw new Error('EMPTY_GEMINI_RESPONSE');
+      }
 
-    if (!geminiResponse.ok) {
-      const errBody = await geminiResponse.text();
-      console.warn(`[FoodBridge Match] Gemini API returned status ${geminiResponse.status}: ${errBody}`);
-      const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
+      const parsed = JSON.parse(rawText);
+      if (!parsed || !Array.isArray(parsed.matches) || parsed.matches.length === 0) {
+        throw new Error('INVALID_JSON_SHAPE');
+      }
+
+      return parsed.matches;
+    };
+
+    // Retry flow:
+    // 1. Try GEMINI_MODEL with 8s timeout
+    // 2. If fails, times out, 429, 5xx, or invalid JSON -> retry once after 1s
+    // 3. If that fails -> retry with GEMINI_FALLBACK_MODEL
+    // 4. Only if all attempts fail -> rule-based matches and fallback: true
+    let matchesRaw = null;
+
+    try {
+      console.log(`[FoodBridge Match] Calling Gemini API (${GEMINI_MODEL}) for role=${role}...`);
+      matchesRaw = await callGeminiModel(GEMINI_MODEL);
+    } catch (firstErr) {
+      console.warn(`[FoodBridge Match] Attempt 1 (${GEMINI_MODEL}) failed: ${firstErr.message}. Retrying once after 1 second...`);
+      await new Promise(r => setTimeout(r, 1000));
+
+      try {
+        console.log(`[FoodBridge Match] Retry 1: Calling Gemini API (${GEMINI_MODEL})...`);
+        matchesRaw = await callGeminiModel(GEMINI_MODEL);
+      } catch (secondErr) {
+        console.warn(`[FoodBridge Match] Attempt 2 (${GEMINI_MODEL}) failed: ${secondErr.message}. Retrying with fallback model (${GEMINI_FALLBACK_MODEL})...`);
+
+        try {
+          console.log(`[FoodBridge Match] Retry 2: Calling Gemini API (${GEMINI_FALLBACK_MODEL})...`);
+          matchesRaw = await callGeminiModel(GEMINI_FALLBACK_MODEL);
+        } catch (thirdErr) {
+          console.warn(`[FoodBridge Match] All Gemini attempts failed: ${thirdErr.message}. Using rule-based fallback.`);
+          matchesRaw = null;
+        }
+      }
+    }
+
+    if (matchesRaw && Array.isArray(matchesRaw) && matchesRaw.length > 0) {
+      const limit = isNgoRole ? 1 : 3;
+      const cleanedMatches = matchesRaw.slice(0, limit).map(m => ({
+        ngoId: String(m.ngoId || (candidateNGOs[0] ? candidateNGOs[0].id : '')),
+        score: Math.min(100, Math.max(0, Math.round(Number(m.score) || 75))),
+        reason: String(m.reason || 'Recommended match for this donation.'),
+      }));
+
+      console.log(`[FoodBridge Match] Gemini match successful (${cleanedMatches.length} NGOs matched for role=${role}).`);
       return res.json({
-        matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
-        isFallback: true,
-        fallbackText: 'Basic match',
+        matches: cleanedMatches,
+        fallback: false,
+        isFallback: false,
       });
     }
 
-    const data = await geminiResponse.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawText) {
-      console.warn('[FoodBridge Match] Empty response from Gemini API. Falling back.');
-      const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
-      return res.json({
-        matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
-        isFallback: true,
-        fallbackText: 'Basic match',
-      });
-    }
-
-    const parsed = JSON.parse(rawText);
-
-    if (!parsed || !Array.isArray(parsed.matches) || parsed.matches.length === 0) {
-      console.warn('[FoodBridge Match] Unexpected JSON shape from Gemini. Falling back.');
-      const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
-      return res.json({
-        matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
-        isFallback: true,
-        fallbackText: 'Basic match',
-      });
-    }
-
-    const limit = isNgoRole ? 1 : 3;
-    const cleanedMatches = parsed.matches.slice(0, limit).map(m => ({
-      ngoId: String(m.ngoId || (candidateNGOs[0] ? candidateNGOs[0].id : '')),
-      score: Math.min(100, Math.max(0, Math.round(Number(m.score) || 75))),
-      reason: String(m.reason || 'Recommended match for this donation.'),
-    }));
-
-    console.log(`[FoodBridge Match] Gemini match successful (${cleanedMatches.length} NGOs matched for role=${role}).`);
-
+    return returnFallback();
+  } catch (outerError) {
+    console.error('[FoodBridge Match] Error in /api/match route:', outerError);
+    const fallbackMatches = computeFallbackMatches(req.body?.donation || {}, req.body?.ngos || []);
+    const isNgo = req.body?.role === 'ngo';
     return res.json({
-      matches: cleanedMatches,
-      isFallback: false,
-    });
-  } catch (error) {
-    console.error('[FoodBridge Match] Error during Gemini match:', error);
-    const fallbackMatches = computeFallbackMatches(donation, candidateNGOs);
-    return res.json({
-      matches: isNgoRole ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
+      matches: isNgo ? fallbackMatches.slice(0, 1) : fallbackMatches.slice(0, 3),
+      fallback: true,
       isFallback: true,
       fallbackText: 'Basic match',
     });
@@ -272,16 +303,14 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     hasKey: Boolean(GEMINI_API_KEY && GEMINI_API_KEY.trim().length > 5),
     model: GEMINI_MODEL,
+    fallbackModel: GEMINI_FALLBACK_MODEL,
   });
 });
 
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`\n===========================================`);
-    console.log(`🚀 FoodBridge AI Backend running on port ${PORT}`);
-    console.log(`📡 Gemini Model: ${GEMINI_MODEL}`);
-    console.log(`🔑 Gemini API Key configured: ${Boolean(GEMINI_API_KEY && GEMINI_API_KEY.trim().length > 5) ? 'YES' : 'NO (using Basic match fallback)'}`);
-    console.log(`===========================================\n`);
+    console.log(`Server listening on ${PORT}`);
+    console.log(`GEMINI_API_KEY found: ${Boolean(GEMINI_API_KEY && GEMINI_API_KEY.trim().length > 0)}`);
   });
 }
 

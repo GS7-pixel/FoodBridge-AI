@@ -135,6 +135,7 @@ export async function fetchAIMatches(
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(8000),
       body: JSON.stringify({
         role: user?.role || 'admin',
         ngoId: user?.ngoId,
