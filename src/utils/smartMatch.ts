@@ -1,4 +1,4 @@
-import { Donation, NGOPartner, AIMatch, MatchFactor } from '../types';
+import { Donation, NGOPartner, AIMatch, MatchFactor, User } from '../types';
 
 export interface AIMatchCardData {
   ngoId: string;
@@ -17,16 +17,26 @@ const CACHE_PREFIX = 'foodbridge_aimatch_';
 
 /**
  * Fallback rule-based match when server/API is unavailable or rate-limited.
- * Filters & ranks NGOs by food type compatibility, capacity, and locality.
+ * Respects role visibility: donors see [], NGOs see only their own NGO, Admin sees top 3.
  */
 export function computeClientFallbackMatches(
   donation: Donation,
-  ngos: NGOPartner[]
+  ngos: NGOPartner[],
+  user?: User
 ): AIMatchCardData[] {
+  if (user?.role === 'donor') {
+    return [];
+  }
+
+  let candidateNGOs = ngos;
+  if (user?.role === 'ngo' && user.ngoId) {
+    candidateNGOs = ngos.filter(n => n.id === user.ngoId);
+  }
+
   const foodType = (donation.category || donation.foodName || '').toLowerCase();
   const quantity = Number(donation.quantity) || 0;
 
-  const scored = ngos.map(ngo => {
+  const scored = candidateNGOs.map(ngo => {
     let score = 65;
     const accepted = (ngo.acceptedFoodTypes || ngo.specialties || []).map(t => String(t).toLowerCase());
     const matchesFood = accepted.some(t => foodType.includes(t) || t.includes(foodType));
@@ -58,7 +68,8 @@ export function computeClientFallbackMatches(
 
   scored.sort((a, b) => b.score - a.score || a.area.localeCompare(b.area));
 
-  return scored.slice(0, 3).map(({ ngoId, ngo, score, reason }) => ({
+  const limit = user?.role === 'ngo' ? 1 : 3;
+  return scored.slice(0, limit).map(({ ngoId, ngo, score, reason }) => ({
     ngoId,
     ngo,
     score,
@@ -67,14 +78,24 @@ export function computeClientFallbackMatches(
 }
 
 /**
- * Fetch matches via backend Gemini API, caching in localStorage by donation ID.
- * Falls back transparently to rule-based match if API is unavailable, fails, or rate-limited.
+ * Fetch matches via backend Gemini API, role-aware, caching in localStorage.
  */
 export async function fetchAIMatches(
   donation: Donation,
-  ngos: NGOPartner[]
+  ngos: NGOPartner[],
+  user?: User
 ): Promise<MatchFetchResult> {
-  const cacheKey = `${CACHE_PREFIX}${donation.id}`;
+  // Donors never receive or view NGO matches
+  if (user?.role === 'donor') {
+    return {
+      matches: [],
+      isFallback: false,
+      label: 'Matching in progress',
+    };
+  }
+
+  const roleKey = user?.role === 'ngo' ? `ngo_${user.ngoId || ''}` : 'admin';
+  const cacheKey = `${CACHE_PREFIX}${donation.id}_${roleKey}`;
 
   // 1. Check localStorage first
   try {
@@ -105,12 +126,18 @@ export async function fetchAIMatches(
       ? Math.max(0, Math.round(((new Date(donation.pickupDeadline).getTime() - Date.now()) / (1000 * 60 * 60)) * 10) / 10)
       : 4;
 
+    const targetNGOs = user?.role === 'ngo' && user.ngoId
+      ? ngos.filter(n => n.id === user.ngoId)
+      : ngos;
+
     const res = await fetch('/api/match', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        role: user?.role || 'admin',
+        ngoId: user?.ngoId,
         donation: {
           id: donation.id,
           foodName: donation.foodName,
@@ -123,7 +150,7 @@ export async function fetchAIMatches(
           hoursLeft,
           urgency: donation.urgency,
         },
-        ngos: ngos.map(n => ({
+        ngos: targetNGOs.map(n => ({
           id: n.id,
           name: n.name,
           area: n.area || n.location,
@@ -162,7 +189,7 @@ export async function fetchAIMatches(
   }
 
   // 3. Fallback to client-side rule-based match
-  const fallback = computeClientFallbackMatches(donation, ngos);
+  const fallback = computeClientFallbackMatches(donation, ngos, user);
   const fallbackPayload = {
     matches: fallback.map(f => ({ ngoId: f.ngoId, score: f.score, reason: f.reason })),
     isFallback: true,

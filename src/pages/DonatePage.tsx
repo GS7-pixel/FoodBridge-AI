@@ -51,7 +51,7 @@ interface FormErrors {
 }
 
 export default function DonatePage() {
-  const { addDonation, ngoPartners, currentUser } = useApp();
+  const { addDonation, visibleNGOs, currentUser } = useApp();
   const [form, setForm] = useState<DonationFormData>({
     ...emptyForm,
     contactName: currentUser.name,
@@ -100,15 +100,18 @@ export default function DonatePage() {
     const donation = addDonation(form);
     setCreatedDonation(donation);
     setSubmitted(true);
-    setLoadingMatches(true);
 
-    try {
-      const res = await fetchAIMatches(donation, ngoPartners);
-      setMatchResult(res);
-    } catch (err) {
-      console.error('Failed to fetch AI match on donation creation:', err);
-    } finally {
-      setLoadingMatches(false);
+    // Donors never call or receive NGO match rankings
+    if (currentUser.role !== 'donor') {
+      setLoadingMatches(true);
+      try {
+        const res = await fetchAIMatches(donation, visibleNGOs, currentUser);
+        setMatchResult(res);
+      } catch (err) {
+        console.error('Failed to fetch AI match on donation creation:', err);
+      } finally {
+        setLoadingMatches(false);
+      }
     }
   };
 
@@ -134,69 +137,110 @@ export default function DonatePage() {
             has been posted and is now visible to NGO partners.
           </p>
 
-          {/* Smart Match Recommendations Loading State */}
-          {loadingMatches && (
-            <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 mb-6 text-left">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-emerald-600 animate-spin" />
-                <h3 className="font-semibold text-stone-800">Finding Best NGO Matches with AI...</h3>
-              </div>
-              <p className="text-xs text-stone-500 mb-4">
-                Evaluating accepted food types, capacities, Delhi/NCR proximity, and urgency...
-              </p>
-              <div className="space-y-3">
-                <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
-                <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
-                <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
-              </div>
-            </div>
-          )}
-
-          {/* Smart Match Recommendations Loaded */}
-          {!loadingMatches && matchResult && matchResult.matches.length > 0 && (
+          {/* Donor View: Matching in progress or Accepted */}
+          {currentUser.role === 'donor' ? (
             <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 mb-6 text-left">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-emerald-600" />
-                  <h3 className="font-semibold text-stone-800">Smart Match Recommendations</h3>
+                  <h3 className="font-semibold text-stone-800">Smart Match Status</h3>
                 </div>
                 <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium ${
-                  matchResult.isFallback 
-                    ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                  createdDonation.acceptedByName
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
                     : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                 }`}>
-                  {matchResult.isFallback ? 'Basic match' : 'Gemini AI Match'}
+                  {createdDonation.acceptedByName ? 'Accepted' : 'Matching in progress'}
                 </span>
               </div>
-              <div className="space-y-3">
-                {matchResult.matches.map((m) => (
-                  <div key={m.ngoId} className="bg-white rounded-lg p-4 border border-emerald-100">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{m.ngo.avatar}</span>
-                        <div>
-                          <p className="text-sm font-semibold text-stone-800">{m.ngo.name}</p>
-                          <p className="text-[11px] text-stone-400">
-                            {m.ngo.area || m.ngo.location} • Cap: {m.ngo.capacity} servings
-                            {m.ngo.pickupAvailable ? ' • 🚚 Pickup Available' : ' • 📍 Drop-off'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-emerald-600">{m.score}%</p>
-                        <p className="text-[10px] text-stone-400">match</p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-stone-600 leading-relaxed mt-1">{m.reason}</p>
+              {createdDonation.acceptedByName ? (
+                <div className="bg-white rounded-lg p-4 border border-emerald-100">
+                  <p className="text-sm font-semibold text-stone-800">
+                    Accepted by {createdDonation.acceptedByName}
+                  </p>
+                  <p className="text-xs text-stone-600 mt-1">
+                    Your donation has been accepted for pickup.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg p-4 border border-emerald-100 flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div>
+                    <p className="text-sm font-medium text-stone-800">Matching in progress</p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      FoodBridge AI is actively evaluating verified NGO partners in Delhi NCR.
+                    </p>
                   </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-stone-400 mt-3 italic">
-                {matchResult.isFallback
-                  ? 'Showing Basic match filtered by accepted food type and capacity, sorted by area.'
-                  : 'Ranked by Google Gemini AI based on food compatibility, capacity, locality & pickup urgency.'}
-              </p>
+                </div>
+              )}
             </div>
+          ) : (
+            <>
+              {/* Admin Smart Match Recommendations Loading State */}
+              {loadingMatches && (
+                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-6 mb-6 text-left">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-emerald-600 animate-spin" />
+                    <h3 className="font-semibold text-stone-800">Finding Best NGO Matches with AI...</h3>
+                  </div>
+                  <p className="text-xs text-stone-500 mb-4">
+                    Evaluating accepted food types, capacities, Delhi/NCR proximity, and urgency...
+                  </p>
+                  <div className="space-y-3">
+                    <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
+                    <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
+                    <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-20" />
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Smart Match Recommendations Loaded */}
+              {!loadingMatches && matchResult && matchResult.matches.length > 0 && (
+                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 mb-6 text-left">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-semibold text-stone-800">Smart Match Recommendations</h3>
+                    </div>
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium ${
+                      matchResult.isFallback 
+                        ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      {matchResult.isFallback ? 'Basic match' : 'Gemini AI Match'}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {matchResult.matches.map((m) => (
+                      <div key={m.ngoId} className="bg-white rounded-lg p-4 border border-emerald-100">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{m.ngo.avatar}</span>
+                            <div>
+                              <p className="text-sm font-semibold text-stone-800">{m.ngo.name}</p>
+                              <p className="text-[11px] text-stone-400">
+                                {m.ngo.area || m.ngo.location} • Cap: {m.ngo.capacity} servings
+                                {m.ngo.pickupAvailable ? ' • 🚚 Pickup Available' : ' • 📍 Drop-off'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-emerald-600">{m.score}%</p>
+                            <p className="text-[10px] text-stone-400">match</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-stone-600 leading-relaxed mt-1">{m.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-3 italic">
+                    {matchResult.isFallback
+                      ? 'Showing Basic match filtered by accepted food type and capacity, sorted by area.'
+                      : 'Ranked by Google Gemini AI based on food compatibility, capacity, locality & pickup urgency.'}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex flex-wrap justify-center gap-3">

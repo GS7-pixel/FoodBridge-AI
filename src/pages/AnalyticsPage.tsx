@@ -19,13 +19,13 @@ import {
 const COLORS = ['#059669', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
 
 export default function AnalyticsPage() {
-  const { donations, ngoPartners } = useApp();
+  const { visibleDonations, visibleNGOs } = useApp();
 
   const stats = useMemo(() => {
-    const total = donations.length;
-    const delivered = donations.filter(d => d.status === 'delivered');
-    const pending = donations.filter(d => d.status === 'accepted' || d.status === 'picked_up');
-    const totalMeals = donations.reduce((s, d) => s + d.quantity, 0);
+    const total = visibleDonations.length;
+    const delivered = visibleDonations.filter(d => d.status === 'delivered');
+    const pending = visibleDonations.filter(d => d.status === 'accepted' || d.status === 'picked_up');
+    const totalMeals = visibleDonations.reduce((s, d) => s + d.quantity, 0);
     const deliveredMeals = delivered.reduce((s, d) => s + d.quantity, 0);
     // Rough estimate: average meal = 0.4 kg
     const wasteAvoided = (deliveredMeals * 0.4).toFixed(1);
@@ -38,15 +38,15 @@ export default function AnalyticsPage() {
       deliveredMeals,
       wasteAvoided,
     };
-  }, [donations]);
+  }, [visibleDonations]);
 
   const categoryData = useMemo(() => {
     const counts: Record<string, number> = {};
-    donations.forEach(d => {
+    visibleDonations.forEach(d => {
       counts[d.category] = (counts[d.category] || 0) + d.quantity;
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [donations]);
+  }, [visibleDonations]);
 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {
@@ -55,12 +55,12 @@ export default function AnalyticsPage() {
       'Picked Up': 0,
       'Delivered': 0,
     };
-    donations.forEach(d => {
+    visibleDonations.forEach(d => {
       const label = d.status === 'picked_up' ? 'Picked Up' : d.status.charAt(0).toUpperCase() + d.status.slice(1);
       counts[label] = (counts[label] || 0) + 1;
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [donations]);
+  }, [visibleDonations]);
 
   // Weekly trend (demo data)
   const weeklyTrend = [
@@ -207,38 +207,44 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* NGO Partners */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="w-5 h-5 text-emerald-600" />
-          <h3 className="font-semibold text-stone-800">NGO Partners</h3>
-          <span className="text-[10px] bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full">Demo partners</span>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {ngoPartners.map(ngo => (
-            <div key={ngo.id} className="rounded-lg border border-stone-100 p-4 bg-stone-50/50">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{ngo.avatar}</span>
-                <div>
-                  <p className="font-semibold text-stone-800 text-sm">{ngo.name}</p>
-                  <p className="text-[11px] text-stone-400">{ngo.location}</p>
+      {/* NGO Partners (visible only when visibleNGOs are available) */}
+      {visibleNGOs.length > 0 && (
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-emerald-600" />
+            <h3 className="font-semibold text-stone-800">
+              {visibleNGOs.length === 1 ? 'Your Organization' : 'NGO Partners'}
+            </h3>
+            <span className="text-[10px] bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full">
+              {visibleNGOs.length === 1 ? 'Verified NGO' : 'Demo partners'}
+            </span>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {visibleNGOs.map(ngo => (
+              <div key={ngo.id} className="rounded-lg border border-stone-100 p-4 bg-stone-50/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">{ngo.avatar}</span>
+                  <div>
+                    <p className="font-semibold text-stone-800 text-sm">{ngo.name}</p>
+                    <p className="text-[11px] text-stone-400">{ngo.location}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-stone-500 mb-3 leading-relaxed">{ngo.description}</p>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-white rounded-lg p-2 border border-stone-100">
+                    <p className="text-lg font-bold text-emerald-600">{ngo.totalDelivered}</p>
+                    <p className="text-[10px] text-stone-400">Delivered</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-2 border border-stone-100">
+                    <p className="text-lg font-bold text-blue-600">{ngo.capacity}</p>
+                    <p className="text-[10px] text-stone-400">Capacity</p>
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-stone-500 mb-3 leading-relaxed">{ngo.description}</p>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-white rounded-lg p-2 border border-stone-100">
-                  <p className="text-lg font-bold text-emerald-600">{ngo.totalDelivered}</p>
-                  <p className="text-[10px] text-stone-400">Delivered</p>
-                </div>
-                <div className="bg-white rounded-lg p-2 border border-stone-100">
-                  <p className="text-lg font-bold text-blue-600">{ngo.capacity}</p>
-                  <p className="text-[10px] text-stone-400">Capacity</p>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

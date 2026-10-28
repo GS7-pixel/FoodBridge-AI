@@ -32,14 +32,21 @@ const statusStepInfo: Record<DonationStatus, { icon: typeof Package; label: stri
 type FilterTab = 'all' | DonationStatus;
 
 export default function MyDonationsPage() {
-  const { donations, updateDonationStatus, currentUser } = useApp();
+  const { visibleDonations, updateDonationStatus, currentUser } = useApp();
   const [tab, setTab] = useState<FilterTab>('all');
 
   const myDonations = useMemo(() => {
-    return donations.filter(d =>
-      d.donorId === currentUser.id || d.acceptedBy === currentUser.id
-    );
-  }, [donations, currentUser.id]);
+    if (currentUser.role === 'admin') {
+      return visibleDonations;
+    }
+    if (currentUser.role === 'donor') {
+      return visibleDonations.filter(d => d.donorId === currentUser.id);
+    }
+    if (currentUser.role === 'ngo') {
+      return visibleDonations.filter(d => d.acceptedByNgoId === currentUser.ngoId);
+    }
+    return [];
+  }, [visibleDonations, currentUser]);
 
   const filtered = tab === 'all' ? myDonations : myDonations.filter(d => d.status === tab);
 
@@ -59,11 +66,8 @@ export default function MyDonationsPage() {
 
   const canAdvance = (donation: Donation): boolean => {
     if (donation.status === 'delivered') return false;
-    // Donors can't advance from 'accepted' — only the NGO can
-    if (donation.donorId === currentUser.id && donation.status === 'accepted') return false;
-    // NGO can advance from accepted → picked_up → delivered
-    if (donation.acceptedBy === currentUser.id) return true;
-    // Donor can see but only status = available stays as is (no advance needed)
+    if (currentUser.role === 'admin') return true;
+    if (currentUser.role === 'ngo' && donation.acceptedByNgoId === currentUser.ngoId) return true;
     return false;
   };
 
@@ -103,15 +107,17 @@ export default function MyDonationsPage() {
           <h3 className="font-semibold text-stone-600 mb-1">No donations here</h3>
           <p className="text-sm text-stone-400 mb-4">
             {tab === 'all'
-              ? "You haven't posted or accepted any donations yet."
+              ? (currentUser.role === 'ngo'
+                  ? "Your NGO hasn't accepted any donations yet."
+                  : "You haven't posted any donations yet.")
               : `No donations with status "${getStatusLabel(tab as DonationStatus)}".`
             }
           </p>
           <Link
-            to="/donate"
+            to={currentUser.role === 'ngo' ? "/find" : "/donate"}
             className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-all text-sm"
           >
-            Donate Food
+            {currentUser.role === 'ngo' ? "Find Donations" : "Donate Food"}
           </Link>
         </div>
       ) : (

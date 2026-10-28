@@ -1,4 +1,53 @@
-import { DonationStatus, UrgencyLevel, StorageCondition } from '../types';
+import { DonationStatus, UrgencyLevel, StorageCondition, Donation, NGOPartner, User, Notification } from '../types';
+
+export function getVisibleDonations(donations: Donation[], user: User): Donation[] {
+  if (!user) return [];
+  if (user.role === 'admin') {
+    return donations;
+  }
+  if (user.role === 'donor') {
+    return donations.filter(d => d.donorId === user.id);
+  }
+  if (user.role === 'ngo') {
+    return donations.filter(d =>
+      d.status === 'available' || (Boolean(user.ngoId) && d.acceptedByNgoId === user.ngoId)
+    );
+  }
+  return [];
+}
+
+export function getVisibleNGOs(ngos: NGOPartner[], user: User): NGOPartner[] {
+  if (!user) return [];
+  if (user.role === 'admin') {
+    return ngos;
+  }
+  if (user.role === 'ngo') {
+    return ngos.filter(n => n.id === user.ngoId);
+  }
+  return [];
+}
+
+export function getVisibleNotifications(notifications: Notification[], user: User): Notification[] {
+  if (!user) return [];
+  if (user.role === 'admin') {
+    return notifications;
+  }
+  if (user.role === 'donor') {
+    return notifications.filter(n =>
+      (!n.targetRole && !n.targetUserId) ||
+      n.targetRole === 'donor' ||
+      n.targetUserId === user.id
+    );
+  }
+  if (user.role === 'ngo') {
+    return notifications.filter(n =>
+      (!n.targetRole && !n.targetNgoId) ||
+      (n.targetRole === 'ngo' && !n.targetNgoId) ||
+      n.targetNgoId === user.ngoId
+    );
+  }
+  return [];
+}
 
 export function formatDate(iso: string): string {
   const d = new Date(iso);

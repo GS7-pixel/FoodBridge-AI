@@ -21,14 +21,24 @@ const mobileNavItems = [
 ];
 
 export default function TopNav() {
-  const { currentUser, setCurrentRole, notifications, markNotificationRead, searchQuery, setSearchQuery } = useApp();
+  const {
+    currentUser,
+    allUsers,
+    setCurrentRole,
+    setCurrentUserId,
+    visibleNotifications,
+    markNotificationRead,
+    searchQuery,
+    setSearchQuery,
+  } = useApp();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = visibleNotifications.filter(n => !n.read).length;
+  const roleUsers = allUsers.filter(u => u.role === currentUser.role);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -92,6 +102,22 @@ export default function TopNav() {
             ))}
           </div>
 
+          {/* User Dropdown */}
+          <div className="hidden sm:flex items-center">
+            <select
+              value={currentUser.id}
+              onChange={(e) => setCurrentUserId(e.target.value)}
+              className="text-xs bg-white border border-stone-200 text-stone-700 py-1.5 px-2.5 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer shadow-sm max-w-[230px] truncate"
+              title="Pick current user"
+            >
+              {roleUsers.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name} {u.organization || u.businessName ? `(${u.organization || u.businessName})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Notification bell */}
           <div className="relative" ref={notifRef}>
             <button
@@ -111,10 +137,10 @@ export default function TopNav() {
                   Notifications
                 </div>
                 <div className="max-h-72 overflow-y-auto">
-                  {notifications.length === 0 ? (
+                  {visibleNotifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-sm text-stone-400">No notifications</div>
                   ) : (
-                    notifications.slice(0, 6).map(n => (
+                    visibleNotifications.slice(0, 6).map(n => (
                       <button
                         key={n.id}
                         onClick={() => markNotificationRead(n.id)}
@@ -153,6 +179,24 @@ export default function TopNav() {
                 <div className="px-4 py-3 border-b border-stone-100">
                   <p className="font-semibold text-sm text-stone-800">{currentUser.name}</p>
                   <p className="text-xs text-stone-500">{currentUser.email}</p>
+                </div>
+                {/* User selection inside dropdown */}
+                <div className="px-4 py-2 border-b border-stone-100">
+                  <p className="text-[11px] text-stone-400 mb-1 uppercase tracking-wider font-medium">Active Account</p>
+                  <select
+                    value={currentUser.id}
+                    onChange={(e) => {
+                      setCurrentUserId(e.target.value);
+                      setShowProfile(false);
+                    }}
+                    className="w-full text-xs bg-stone-50 border border-stone-200 text-stone-700 py-1.5 px-2 rounded-lg font-medium"
+                  >
+                    {allUsers.map(u => (
+                      <option key={u.id} value={u.id}>
+                        [{roleLabels[u.role]}] {u.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 {/* Mobile role selector */}
                 <div className="sm:hidden px-4 py-2 border-b border-stone-100">
@@ -211,6 +255,25 @@ export default function TopNav() {
                 {label}
               </NavLink>
             ))}
+
+            {/* Mobile User & Role Switcher */}
+            <div className="pt-4 pb-2 border-t border-white/10 mt-4 px-2">
+              <p className="text-[10px] text-white/50 uppercase tracking-wider mb-2 font-medium">Switch Active User</p>
+              <select
+                value={currentUser.id}
+                onChange={(e) => {
+                  setCurrentUserId(e.target.value);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full text-xs bg-white/10 border border-white/20 text-white py-2 px-2.5 rounded-lg font-medium"
+              >
+                {allUsers.map(u => (
+                  <option key={u.id} value={u.id} className="text-stone-800">
+                    [{roleLabels[u.role]}] {u.name} {u.organization || u.businessName ? `— ${u.organization || u.businessName}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </nav>
         </div>
       )}

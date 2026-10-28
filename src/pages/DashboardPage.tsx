@@ -17,18 +17,24 @@ import { fetchAIMatches, MatchFetchResult } from '../utils/smartMatch';
 import { Donation } from '../types';
 
 export default function DashboardPage() {
-  const { donations, ngoPartners, currentUser } = useApp();
+  const { visibleDonations, visibleNGOs, currentUser } = useApp();
 
-  const available = donations.filter(d => d.status === 'available');
-  const mealsRescued = donations
+  const available = visibleDonations.filter(d => d.status === 'available');
+  const mealsRescued = visibleDonations
     .filter(d => d.status === 'delivered')
     .reduce((sum, d) => sum + d.quantity, 0);
-  const pendingPickups = donations.filter(d => d.status === 'accepted').length;
+  const pendingPickups = visibleDonations.filter(d => d.status === 'accepted').length;
+
+  const activeNgoPartnersCount = currentUser.role === 'admin'
+    ? visibleNGOs.length
+    : currentUser.role === 'ngo'
+      ? (currentUser.ngoId ? 1 : 0)
+      : new Set(visibleDonations.map(d => d.acceptedByNgoId).filter(Boolean)).size;
 
   const summaryCards = [
     { label: 'Available Donations', value: available.length, icon: Package, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Meals Rescued', value: mealsRescued || 260, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50', demo: mealsRescued === 0 },
-    { label: 'Active NGO Partners', value: ngoPartners.length, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Meals Rescued', value: mealsRescued, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Active NGO Partners', value: activeNgoPartnersCount, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
     { label: 'Pending Pickups', value: pendingPickups, icon: Truck, color: 'text-orange-600', bg: 'bg-orange-50' },
   ];
 
@@ -39,14 +45,19 @@ export default function DashboardPage() {
   const [topMatchResult, setTopMatchResult] = useState<MatchFetchResult | null>(null);
   const [loadingTopMatch, setLoadingTopMatch] = useState(false);
 
+  const targetDonation = available[0] || null;
+
   useEffect(() => {
-    if (available.length === 0) {
+    // Donors never call or receive AI match for NGOs
+    if (currentUser.role === 'donor' || !targetDonation) {
       setTopMatchResult(null);
+      setLoadingTopMatch(false);
       return;
     }
+
     let active = true;
     setLoadingTopMatch(true);
-    fetchAIMatches(available[0], ngoPartners)
+    fetchAIMatches(targetDonation, visibleNGOs, currentUser)
       .then(res => {
         if (active) {
           setTopMatchResult(res);
@@ -61,11 +72,11 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [available.length > 0 ? available[0].id : null, ngoPartners]);
+  }, [targetDonation, visibleNGOs, currentUser]);
 
   const topMatch = topMatchResult?.matches?.[0] || null;
-
-  const recentDonations = donations.slice(0, 6);
+  const recentDonations = visibleDonations.slice(0, 6);
+  const latestDonorDonation = currentUser.role === 'donor' ? visibleDonations[0] : null;
 
   const getHour = () => {
     const h = new Date().getHours();
@@ -97,9 +108,6 @@ export default function DashboardPage() {
               <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
                 <card.icon className={`w-5 h-5 ${card.color}`} />
               </div>
-              {card.demo && (
-                <span className="text-[9px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">demo</span>
-              )}
             </div>
             <p className="text-2xl font-bold text-stone-800">{card.value}</p>
             <p className="text-xs text-stone-500 mt-0.5">{card.label}</p>
@@ -183,64 +191,129 @@ export default function DashboardPage() {
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-stone-800 text-sm">Smart Match</h3>
+                  <h3 className="font-semibold text-stone-800 text-sm">
+                    {currentUser.role === 'donor'
+                      ? 'Matching Status'
+                      : currentUser.role === 'ngo'
+                      ? 'Smart Match — Your NGO'
+                      : 'Smart Match'}
+                  </h3>
                   <p className="text-[10px] text-stone-500">
-                    {topMatchResult?.isFallback ? 'Basic match' : 'Gemini AI Match'}
+                    {currentUser.role === 'donor'
+                      ? 'Donation dispatch status'
+                      : currentUser.role === 'ngo'
+                      ? 'Compatibility with your organization'
+                      : topMatchResult?.isFallback
+                      ? 'Basic match'
+                      : 'Gemini AI Match'}
                   </p>
                 </div>
               </div>
-              {topMatchResult && !loadingTopMatch && (
+              {currentUser.role === 'donor' ? (
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  topMatchResult.isFallback
-                    ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                  latestDonorDonation && latestDonorDonation.status !== 'available'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
                     : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                 }`}>
-                  {topMatchResult.isFallback ? 'Basic match' : 'Gemini AI'}
+                  {latestDonorDonation && latestDonorDonation.status !== 'available'
+                    ? 'Accepted'
+                    : 'Matching in progress'}
                 </span>
+              ) : currentUser.role === 'ngo' ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  Your NGO
+                </span>
+              ) : (
+                topMatchResult && !loadingTopMatch && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    topMatchResult.isFallback
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    {topMatchResult.isFallback ? 'Basic match' : 'Gemini AI'}
+                  </span>
+                )
               )}
             </div>
 
-            {loadingTopMatch && (
-              <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse space-y-2">
-                <div className="h-4 bg-stone-200 rounded w-2/3" />
-                <div className="h-3 bg-stone-100 rounded w-1/2" />
-                <div className="h-3 bg-stone-100 rounded w-full" />
-              </div>
-            )}
+            {/* Donor View: No ranked NGO list; show matching status */}
+            {currentUser.role === 'donor' ? (
+              latestDonorDonation ? (
+                <div className="bg-white rounded-lg p-3.5 border border-emerald-100">
+                  <p className="text-sm font-semibold text-stone-800 mb-1">{latestDonorDonation.foodName}</p>
+                  <p className="text-xs text-stone-500 mb-2">
+                    {latestDonorDonation.quantity} {latestDonorDonation.unit} • {latestDonorDonation.category}
+                  </p>
+                  {latestDonorDonation.acceptedByName ? (
+                    <div className="pt-2 border-t border-stone-100">
+                      <p className="text-xs font-medium text-emerald-700">
+                        Accepted by {latestDonorDonation.acceptedByName}
+                      </p>
+                      <p className="text-[11px] text-stone-500 mt-0.5">
+                        Pickup scheduled at {latestDonorDonation.pickupLocation}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <p className="text-xs text-emerald-700 font-medium">Matching in progress</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-stone-500 py-2">
+                  Post a donation to start Smart Matching.
+                </p>
+              )
+            ) : (
+              <>
+                {loadingTopMatch && (
+                  <div className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse space-y-2">
+                    <div className="h-4 bg-stone-200 rounded w-2/3" />
+                    <div className="h-3 bg-stone-100 rounded w-1/2" />
+                    <div className="h-3 bg-stone-100 rounded w-full" />
+                  </div>
+                )}
 
-            {!loadingTopMatch && topMatch ? (
-              <div>
-                <div className="bg-white rounded-lg p-3.5 border border-emerald-100 mb-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{topMatch.ngo.avatar}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-stone-800 truncate">{topMatch.ngo.name}</p>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-stone-400" />
-                        <span className="text-[11px] text-stone-500 truncate">
-                          {topMatch.ngo.area || topMatch.ngo.location}
-                        </span>
+                {!loadingTopMatch && topMatch ? (
+                  <div>
+                    <div className="bg-white rounded-lg p-3.5 border border-emerald-100 mb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">{topMatch.ngo.avatar}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-stone-800 truncate">
+                            {currentUser.role === 'ngo' ? `Your NGO (${topMatch.ngo.name})` : topMatch.ngo.name}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-stone-400" />
+                            <span className="text-[11px] text-stone-500 truncate">
+                              {topMatch.ngo.area || topMatch.ngo.location}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-lg font-bold text-emerald-600">{topMatch.score}%</span>
+                      </div>
+                      <p className="text-xs text-stone-600 leading-relaxed">{topMatch.reason}</p>
+                      <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
+                        <span>{topMatch.ngo.pickupAvailable ? '🚚 Pickup Available' : '📍 Drop-off'}</span>
+                        <span>Cap: {topMatch.ngo.capacity} servings</span>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-emerald-600">{topMatch.score}%</span>
+                    <p className="text-[9px] text-stone-400 mt-2 italic">
+                      {currentUser.role === 'ngo'
+                        ? 'Fit evaluation computed for your NGO only.'
+                        : topMatchResult?.isFallback
+                        ? 'Basic match — filtered by food type & capacity, sorted by area.'
+                        : 'Ranked by Gemini AI for food compatibility, capacity, locality & urgency.'}
+                    </p>
                   </div>
-                  <p className="text-xs text-stone-600 leading-relaxed">{topMatch.reason}</p>
-                  <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
-                    <span>{topMatch.ngo.pickupAvailable ? '🚚 Pickup Available' : '📍 Drop-off'}</span>
-                    <span>Cap: {topMatch.ngo.capacity} servings</span>
-                  </div>
-                </div>
-                <p className="text-[9px] text-stone-400 mt-2 italic">
-                  {topMatchResult?.isFallback
-                    ? 'Basic match — filtered by food type & capacity, sorted by area.'
-                    : 'Ranked by Gemini AI for food compatibility, capacity, locality & urgency.'}
-                </p>
-              </div>
-            ) : !loadingTopMatch ? (
-              <p className="text-xs text-stone-500 py-2">
-                Add a donation to see matching recommendations.
-              </p>
-            ) : null}
+                ) : !loadingTopMatch ? (
+                  <p className="text-xs text-stone-500 py-2">
+                    Add a donation to see matching recommendations.
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -268,6 +341,11 @@ function DonationRow({ donation }: { donation: Donation }) {
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${getStatusColor(donation.status)}`}>
           {getStatusLabel(donation.status)}
         </span>
+        {donation.acceptedByName && (
+          <p className="text-[10px] text-stone-500 mt-0.5 truncate max-w-[150px]">
+            by {donation.acceptedByName}
+          </p>
+        )}
       </td>
       <td className="px-5 py-3">
         <Link

@@ -119,8 +119,11 @@ export default function SettingsPage() {
         </p>
         <button
           onClick={() => {
-            localStorage.removeItem('foodbridge_donations');
-            localStorage.removeItem('foodbridge_notifications');
+            Object.keys(localStorage).forEach(k => {
+              if (k.startsWith('foodbridge_')) {
+                localStorage.removeItem(k);
+              }
+            });
             window.location.reload();
           }}
           className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold px-5 py-2.5 rounded-xl border border-red-200 transition-all"

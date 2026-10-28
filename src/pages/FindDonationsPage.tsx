@@ -30,7 +30,7 @@ const categories: FoodCategory[] = [
 const urgencyLevels: UrgencyLevel[] = ['critical', 'high', 'medium', 'low'];
 
 export default function FindDonationsPage() {
-  const { donations, acceptDonation, ngoPartners, currentUser, searchQuery } = useApp();
+  const { visibleDonations, acceptDonation, visibleNGOs, currentUser, searchQuery } = useApp();
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
   const [localSearch, setLocalSearch] = useState('');
@@ -41,7 +41,7 @@ export default function FindDonationsPage() {
   const query = localSearch || searchQuery;
 
   const filtered = useMemo(() => {
-    return donations
+    return visibleDonations
       .filter(d => d.status === 'available')
       .filter(d => {
         if (categoryFilter && d.category !== categoryFilter) return false;
@@ -57,13 +57,16 @@ export default function FindDonationsPage() {
         }
         return true;
       });
-  }, [donations, categoryFilter, urgencyFilter, query]);
+  }, [visibleDonations, categoryFilter, urgencyFilter, query]);
 
   const handleAccept = (id: string) => {
     const success = acceptDonation(id);
     if (success) {
       setAcceptedId(id);
       setTimeout(() => setAcceptedId(null), 3000);
+      if (selectedDonation?.id === id) {
+        setSelectedDonation(null);
+      }
     }
   };
 
@@ -71,13 +74,14 @@ export default function FindDonationsPage() {
   const [isLoadingMatch, setIsLoadingMatch] = useState(false);
 
   useEffect(() => {
-    if (!selectedDonation) {
+    if (!selectedDonation || currentUser.role === 'donor') {
       setMatchResult(null);
+      setIsLoadingMatch(false);
       return;
     }
     let active = true;
     setIsLoadingMatch(true);
-    fetchAIMatches(selectedDonation, ngoPartners)
+    fetchAIMatches(selectedDonation, visibleNGOs, currentUser)
       .then(res => {
         if (active) {
           setMatchResult(res);
@@ -92,7 +96,7 @@ export default function FindDonationsPage() {
     return () => {
       active = false;
     };
-  }, [selectedDonation, ngoPartners]);
+  }, [selectedDonation, visibleNGOs, currentUser]);
 
   return (
     <div className="space-y-6">
@@ -220,7 +224,11 @@ export default function FindDonationsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isAccepted ? (
+                  {currentUser.role === 'donor' ? (
+                    <span className="text-xs text-stone-500 italic py-1.5">
+                      Your listed donation
+                    </span>
+                  ) : isAccepted ? (
                     <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
                       <CheckCircle className="w-4 h-4" />
                       Accepted!
@@ -255,8 +263,8 @@ export default function FindDonationsPage() {
         </div>
       )}
 
-      {/* Smart Match Panel */}
-      {selectedDonation && (
+      {/* Smart Match Panel (Visible to NGO workers and Admin only) */}
+      {selectedDonation && currentUser.role !== 'donor' && (
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl border border-emerald-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -264,10 +272,16 @@ export default function FindDonationsPage() {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-stone-800">Smart Match for "{selectedDonation.foodName}"</h3>
+                <h3 className="font-semibold text-stone-800">
+                  {currentUser.role === 'ngo'
+                    ? `Fit for Your NGO — "${selectedDonation.foodName}"`
+                    : `Smart Match for "${selectedDonation.foodName}"`}
+                </h3>
                 <p className="text-[11px] text-stone-500">
                   {isLoadingMatch
-                    ? 'Consulting Gemini AI with donation & NGO constraints...'
+                    ? 'Consulting Gemini AI...'
+                    : currentUser.role === 'ngo'
+                    ? 'Evaluated strictly for your NGO capacity and accepted food types'
                     : matchResult?.isFallback
                     ? 'Basic match — rule-based fallback algorithm'
                     : 'Gemini AI intelligent recommendation'}
@@ -275,14 +289,20 @@ export default function FindDonationsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {matchResult && !isLoadingMatch && (
-                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium ${
-                  matchResult.isFallback
-                    ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                    : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                }`}>
-                  {matchResult.isFallback ? 'Basic match' : 'Gemini AI Match'}
+              {currentUser.role === 'ngo' ? (
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  Your NGO
                 </span>
+              ) : (
+                matchResult && !isLoadingMatch && (
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium ${
+                    matchResult.isFallback
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    {matchResult.isFallback ? 'Basic match' : 'Gemini AI Match'}
+                  </span>
+                )
               )}
               <button onClick={() => setSelectedDonation(null)} className="p-1 text-stone-400 hover:text-stone-600">
                 <X className="w-4 h-4" />
@@ -292,8 +312,8 @@ export default function FindDonationsPage() {
 
           {/* Loading Skeleton */}
           {isLoadingMatch && (
-            <div className="grid sm:grid-cols-3 gap-3">
-              {[1, 2, 3].map(i => (
+            <div className={`grid ${currentUser.role === 'ngo' ? 'grid-cols-1 max-w-md' : 'sm:grid-cols-3'} gap-3`}>
+              {(currentUser.role === 'ngo' ? [1] : [1, 2, 3]).map(i => (
                 <div key={i} className="bg-white/80 rounded-lg p-4 border border-emerald-100 animate-pulse h-28">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-8 h-8 bg-stone-200 rounded-full" />
@@ -311,14 +331,16 @@ export default function FindDonationsPage() {
           {/* Loaded Matches */}
           {!isLoadingMatch && matchResult && matchResult.matches.length > 0 && (
             <>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className={`grid ${currentUser.role === 'ngo' ? 'grid-cols-1 max-w-md' : 'sm:grid-cols-3'} gap-3`}>
                 {matchResult.matches.map(m => (
                   <div key={m.ngoId} className="bg-white rounded-lg p-4 border border-emerald-100 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xl">{m.ngo.avatar}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-stone-800 truncate">{m.ngo.name}</p>
+                          <p className="text-sm font-semibold text-stone-800 truncate">
+                            {currentUser.role === 'ngo' ? `Your NGO (${m.ngo.name})` : m.ngo.name}
+                          </p>
                           <p className="text-[11px] text-stone-400 truncate">
                             {m.ngo.area || m.ngo.location} • {m.ngo.capacity} servings
                           </p>
@@ -335,7 +357,9 @@ export default function FindDonationsPage() {
                 ))}
               </div>
               <p className="text-[10px] text-stone-400 mt-3 italic text-right">
-                {matchResult.isFallback
+                {currentUser.role === 'ngo'
+                  ? 'Fit evaluation computed exclusively for your NGO.'
+                  : matchResult.isFallback
                   ? 'Showing Basic match — filtered by food type and capacity, sorted by area.'
                   : 'AI Match scored by Google Gemini based on proximity, capacity fit & urgency.'}
               </p>

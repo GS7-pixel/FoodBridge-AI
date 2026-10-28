@@ -1,16 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Donation, DonationFormData, Notification, User, UserRole, NGOPartner } from '../types';
 import { sampleDonations, sampleNGOs, sampleNotifications, demoUsers } from '../data/sampleData';
-import { generateId, calculateUrgency } from '../utils/helpers';
+import { generateId, calculateUrgency, getVisibleDonations, getVisibleNGOs, getVisibleNotifications } from '../utils/helpers';
 
 interface AppContextType {
   currentUser: User;
+  allUsers: User[];
   setCurrentRole: (role: UserRole) => void;
+  setCurrentUserId: (userId: string) => void;
   donations: Donation[];
+  visibleDonations: Donation[];
+  visibleNGOs: NGOPartner[];
   addDonation: (data: DonationFormData) => Donation;
   acceptDonation: (donationId: string) => boolean;
   updateDonationStatus: (donationId: string, status: Donation['status']) => boolean;
   notifications: Notification[];
+  visibleNotifications: Notification[];
   markNotificationRead: (id: string) => void;
   addNotification: (notif: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   ngoPartners: NGOPartner[];
@@ -30,15 +35,18 @@ export interface Toast {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = 'foodbridge_donations';
+const STORAGE_KEY = 'foodbridge_donations_v3';
 const NOTIF_KEY = 'foodbridge_notifications';
+const USER_KEY = 'foodbridge_current_user_id';
 
 function loadDonations(): Donation[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].acceptedByNgoId !== undefined) {
+        return parsed;
+      }
     }
   } catch { /* ignore */ }
   return sampleDonations;
@@ -55,14 +63,23 @@ function loadNotifications(): Notification[] {
   return sampleNotifications;
 }
 
+function loadCurrentUser(): User {
+  try {
+    const storedId = localStorage.getItem(USER_KEY);
+    if (storedId) {
+      const found = demoUsers.find(u => u.id === storedId);
+      if (found) return found;
+    }
+  } catch { /* ignore */ }
+  return demoUsers[0]; // Arjun Mehta, Sunrise Catering Co.
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('donor');
+  const [currentUser, setCurrentUserState] = useState<User>(loadCurrentUser);
   const [donations, setDonations] = useState<Donation[]>(loadDonations);
   const [notifications, setNotifications] = useState<Notification[]>(loadNotifications);
   const [searchQuery, setSearchQuery] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const currentUser = demoUsers.find(u => u.role === currentRole) || demoUsers[0];
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(donations));
@@ -71,6 +88,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(USER_KEY, currentUser.id);
+  }, [currentUser]);
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = `toast-${Date.now()}`;
@@ -85,8 +106,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setCurrentRole = useCallback((role: UserRole) => {
-    setCurrentRoleState(role);
+    const firstOfRole = demoUsers.find(u => u.role === role) || demoUsers[0];
+    setCurrentUserState(firstOfRole);
   }, []);
+
+  const setCurrentUserId = useCallback((userId: string) => {
+    const found = demoUsers.find(u => u.id === userId);
+    if (found) {
+      setCurrentUserState(found);
+    }
+  }, []);
+
+  // Enforced visibility rules in ONE central place
+  const visibleDonations = useMemo(() => {
+    return getVisibleDonations(donations, currentUser);
+  }, [donations, currentUser]);
+
+  const visibleNGOs = useMemo(() => {
+    return getVisibleNGOs(sampleNGOs, currentUser);
+  }, [currentUser]);
+
+  const visibleNotifications = useMemo(() => {
+    return getVisibleNotifications(notifications, currentUser);
+  }, [notifications, currentUser]);
 
   const addNotification = useCallback((notif: Omit<Notification, 'id' | 'createdAt' | 'read'>) => {
     const newNotif: Notification = {
@@ -114,7 +156,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notes: data.notes,
       status: 'available',
       donorId: currentUser.id,
-      donorName: currentUser.organization || currentUser.name,
+      donorName: currentUser.businessName || currentUser.organization || currentUser.name,
+      acceptedByNgoId: '',
       createdAt: new Date().toISOString(),
       urgency: calculateUrgency(data.pickupDeadline),
     };
@@ -123,6 +166,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       title: 'Donation Posted',
       message: `${data.foodName} has been listed for pickup.`,
       type: 'success',
+      targetUserId: currentUser.id,
+      targetRole: 'donor',
     });
     addToast({
       title: 'Donation Created',
@@ -138,11 +183,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prev.map(d => {
         if (d.id === donationId && d.status === 'available') {
           accepted = true;
+          const ngoId = currentUser.ngoId || '';
+          const ngo = sampleNGOs.find(n => n.id === ngoId);
           return {
             ...d,
             status: 'accepted' as const,
             acceptedBy: currentUser.id,
-            acceptedByName: currentUser.organization || currentUser.name,
+            acceptedByName: ngo?.name || currentUser.organization || currentUser.name,
+            acceptedByNgoId: ngoId,
             acceptedAt: new Date().toISOString(),
           };
         }
@@ -154,6 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         title: 'Donation Accepted',
         message: `A donation has been accepted for pickup.`,
         type: 'success',
+        targetNgoId: currentUser.ngoId,
       });
       addToast({
         title: 'Donation Accepted!',
@@ -210,12 +259,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         currentUser,
+        allUsers: demoUsers,
         setCurrentRole,
+        setCurrentUserId,
         donations,
+        visibleDonations,
+        visibleNGOs,
         addDonation,
         acceptDonation,
         updateDonationStatus,
         notifications,
+        visibleNotifications,
         markNotificationRead,
         addNotification,
         ngoPartners: sampleNGOs,
@@ -235,4 +289,10 @@ export function useApp(): AppContextType {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
+}
+
+export function useVisibleDonations(user?: User): Donation[] {
+  const { donations, currentUser } = useApp();
+  const effectiveUser = user || currentUser;
+  return useMemo(() => getVisibleDonations(donations, effectiveUser), [donations, effectiveUser]);
 }

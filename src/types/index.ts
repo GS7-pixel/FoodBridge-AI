@@ -5,6 +5,8 @@ export interface User {
   name: string;
   role: UserRole;
   organization?: string;
+  businessName?: string;
+  ngoId?: string;
   avatar?: string;
   email: string;
 }
@@ -41,6 +43,7 @@ export interface Donation {
   status: DonationStatus;
   donorId: string;
   donorName: string;
+  acceptedByNgoId?: string;
   acceptedBy?: string;
   acceptedByName?: string;
   acceptedAt?: string;
@@ -103,6 +106,9 @@ export interface Notification {
   type: 'success' | 'info' | 'warning' | 'error';
   read: boolean;
   createdAt: string;
+  targetRole?: UserRole;
+  targetUserId?: string;
+  targetNgoId?: string;
 }
 
 export interface DonationFormData {
