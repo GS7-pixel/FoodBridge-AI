@@ -1,250 +1,277 @@
 # 🌱 FoodBridge AI
 ### Good Food. Better Futures.
 
-**An AI-assisted food rescue platform connecting surplus food donors with NGOs and community organizations to reduce food waste and improve access to meals.**
+**An AI-assisted food rescue platform designed to connect surplus food donors with NGOs and community organizations, helping reduce food waste and improve access to meals.**
 
-[Overview](#-the-problem) · [Solution](#-our-solution) · [Features](#-key-features) · [Technology](#-technology-stack) · [Setup](#-getting-started) · [AI](#-how-smart-match-works)
+<p align="center">
+  <a href="https://food-bridge-ai-2rur.vercel.app/">
+    <strong>🚀 Live Demo</strong>
+  </a>
+  &nbsp; • &nbsp;
+  <strong>Hackathon Project</strong>
+  &nbsp; • &nbsp;
+  <strong>Team Domain Expansion</strong>
+</p>
 
 ---
 
 ## 🌍 The Problem
 
-Food waste and food insecurity exist side by side. Restaurants, college canteens, hostels, and event organizers may have surplus food, while community organizations need timely access to food donations.
+Food waste and food insecurity can exist side by side. Restaurants, college canteens, hostels, and event organizers may have surplus food, while NGOs and community organizations need timely access to food donations.
 
-Coordination can be difficult when donors and potential recipients lack a shared system for discovering available food, assessing quantities, arranging collection, and tracking delivery.
+However, coordinating food donations can be challenging because of:
 
-**The challenge:** How can technology make surplus food easier to discover, match, collect, and distribute responsibly?
+- **Limited visibility:** Potential recipients may not know where surplus food is available.
+- **Time-sensitive collection:** Food donations often need to be collected within a limited time.
+- **Coordination gaps:** Donors and NGOs may struggle to coordinate quantities, locations, and pickup arrangements.
+- **Limited tracking:** It can be difficult to monitor a donation from its initial listing to final collection.
+
+**Our challenge:** How can technology make surplus food easier to discover, match, collect, and distribute responsibly?
 
 ## 💡 Our Solution
 
-FoodBridge AI is a web-based food rescue platform designed to simplify the journey from surplus food to a completed donation.
+FoodBridge AI is a web-based food rescue platform designed to simplify the process of connecting surplus food with organizations that can distribute it.
 
-The platform helps donors publish available food, enables NGO partners to discover suitable donations, and provides an organized workflow for acceptance, collection, and delivery tracking.
+The platform aims to bring food donors and NGO partners together through a centralized digital experience, making donation discovery, partner matching, and donation tracking easier to manage.
 
-Its Smart Match feature evaluates donation requirements against partner capacity, proximity, urgency, and pickup availability to recommend suitable matches.
+By combining an intuitive user interface with intelligent matching concepts, FoodBridge AI focuses on making food rescue more organized, transparent, and accessible.
 
-> Our mission is simple: make food rescue more coordinated, accessible, and transparent.
+**Our mission is simple: Turn surplus food into an opportunity to support communities.**
+
+## 🚀 Explore FoodBridge AI
+
+🌐 **Live Website:** https://food-bridge-ai-2rur.vercel.app/
+
+Visit the live application to explore the FoodBridge AI experience.
 
 ## ✨ Key Features
 
-- **Food Donation Management** — Create and manage food donation listings with quantity, category, location, preparation time, and collection deadline.
-- **Smart Match** — Rank potential NGO partners using donation compatibility and explain the recommendation.
-- **Urgency Prioritization** — Highlight donations that need attention soon based on their collection deadlines.
-- **NGO Discovery** — Browse available donations and identify suitable collection opportunities.
-- **Donation Lifecycle Tracking** — Track donations through Available, Accepted, Picked Up, and Delivered states.
-- **Impact Dashboard** — View donation activity, completed collections, and estimated impact metrics.
-- **Responsive UI** — Provide a clean, accessible interface across desktop and mobile screens.
-- **Demo Mode** — Demonstrate the workflow using clearly labelled sample organizations and sample donation records.
+### 🍱 1. Food Donation Management
+Provides a structured way for food donors to share details about available surplus food, including food type, quantity, location, and collection deadline, where supported by the application.
 
-*Note: Feature descriptions should reflect what is actually implemented in the submitted version.*
+### 🤝 2. NGO and Donation Discovery
+Helps potential collection partners discover available food donations and identify suitable opportunities for collection.
 
-## 🧠 How Smart Match Works
+### 🧠 3. Smart Match
+Designed to evaluate potential donation matches using relevant factors such as:
 
-Smart Match follows a compatibility-first approach:
+- Quantity and partner capacity
+- Distance or location
+- Collection deadline and urgency
+- Pickup availability
 
-1. Collect donation details, including quantity, location, category, and collection deadline.
-2. Evaluate available partner information, including capacity, distance, and confirmed pickup availability.
-3. Rank compatible partners and prioritize time-sensitive donations.
-4. Explain the factors behind each recommendation.
-5. Allow the donor or authorized operator to confirm the collection arrangement.
+The matching approach can use rule-based scoring, with an optional generative AI integration for natural-language explanations where implemented.
 
-### AI and Responsible Recommendations
+### ⏰ 4. Urgency Prioritization
+Highlights time-sensitive donations so that users can focus on opportunities requiring timely action.
 
-FoodBridge distinguishes between algorithmic matching and generative AI.
+### 📦 5. Donation Status Tracking
+Organizes the donation lifecycle around stages such as:
 
-- **Matching algorithm:** Scores and ranks candidate NGOs using defined criteria.
-- **Generative AI, if enabled:** Produces a natural-language explanation based on verified donation and matching data.
-- **Fallback mode:** Keeps the core workflow usable when an external AI service is unavailable.
+`Available → Accepted → Picked Up → Delivered`
 
-Recommendations support human decision-making. They do not guarantee food safety, NGO availability, or successful delivery.
+The available status transitions depend on the implemented application workflow.
 
-## 🔄 How It Works
+### 📊 6. Impact Dashboard
+Provides a way to present donation activity, completed collections, and impact-related metrics.
 
-**Step 1 — Donate**
+Any sample or estimated values should be distinguished from verified real-world outcomes.
 
-A restaurant, canteen, hostel, or event organizer publishes details of its surplus food.
+### 🎨 7. User-Friendly Interface
+Designed around clear navigation, organized information, and a modern interface that makes food donation workflows easier to understand.
 
-**Step 2 — Match**
+*Note: The feature descriptions above describe the intended platform capabilities. Refer to the live application for the features currently available.*
 
-FoodBridge evaluates suitable collection partners and presents ranked recommendations.
+## 🔄 How FoodBridge AI Works
 
-**Step 3 — Accept**
+The proposed workflow consists of five simple steps.
 
-An NGO or authorized collection partner reviews and accepts an available donation.
+**Step 1 — Donate Food**
 
-**Step 4 — Collect**
+A restaurant, college canteen, hostel, or event organizer shares information about surplus food.
 
-The donor and collection partner coordinate pickup within the agreed deadline.
+**Step 2 — Discover Opportunities**
 
-**Step 5 — Track Impact**
+Potential NGO and collection partners explore available donations.
 
-The donation status is updated, and the dashboard reflects completed activities.
+**Step 3 — Find a Suitable Match**
+
+The matching system evaluates relevant factors such as quantity, location, urgency, and collection feasibility.
+
+**Step 4 — Coordinate Collection**
+
+The donor and selected partner confirm the pickup arrangements and coordinate the handover.
+
+**Step 5 — Track the Outcome**
+
+The donation status is updated, helping the platform record completed activities and measure progress.
+
+## 🧠 AI and Smart Matching
+
+FoodBridge AI explores how AI-assisted decision support can improve food donation coordination.
+
+### How Smart Match Can Help
+
+1. **Input analysis:** Evaluate donation details such as quantity, location, food category, and collection deadline.
+2. **Compatibility evaluation:** Compare the donation with available partner capacity and collection constraints.
+3. **Urgency prioritization:** Identify donations that need timely attention.
+4. **Recommendation generation:** Rank suitable partners and explain the factors behind a recommendation.
+5. **Human confirmation:** Allow the relevant users to confirm the actual collection arrangement.
+
+### Responsible AI
+
+FoodBridge distinguishes between algorithmic matching and generative AI:
+
+- **Rule-based matching:** Uses explicit criteria and scoring logic to rank potential partners.
+- **Generative AI:** Can produce contextual explanations when an actual AI model or API is integrated.
+- **Fallback approach:** The core matching workflow can be designed to remain usable when an external AI service is unavailable.
+
+AI recommendations are decision-support tools. They do not independently establish food safety, verify an NGO, or guarantee a successful collection.
 
 ## 🛠️ Technology Stack
 
-Update this list to match the actual implementation.
+The live application's exact implementation should be confirmed from its source code. The following technologies are relevant to the project's development and potential architecture.
 
 | Component | Technology |
 |---|---|
-| Frontend | React, Vite, TypeScript |
-| Styling | Tailwind CSS |
-| Icons | Lucide React |
-| Navigation | React Router |
-| Data Visualization | Recharts |
-| Application Logic | TypeScript / Python, as applicable |
-| Storage | Browser localStorage or configured database |
-| AI Integration | Configured AI API, if implemented |
-| Version Control | Git and GitHub |
+| Web application | React / Vite, if used in the implementation |
+| Programming language | JavaScript / TypeScript, as applicable |
+| UI styling | Tailwind CSS or the styling framework used by the project |
+| Icons | Lucide React, if integrated |
+| Navigation | React Router, if integrated |
+| Data visualization | Recharts, if integrated |
+| Application logic | JavaScript / TypeScript or Python, as applicable |
+| Storage | Browser storage or a configured database |
+| AI integration | AI API or rule-based matching, according to implementation |
+| Deployment | Vercel |
+| Version control | Git and GitHub |
 
-## 🏗️ Architecture
+*The technology list should be finalized according to the actual source code rather than assumed dependencies.*
 
-The application follows a modular design:
+## 🏗️ System Architecture
 
-- **Presentation layer:** Donation forms, dashboards, listings, analytics, and role-specific views.
-- **Application layer:** Input validation, donation management, matching, and status transitions.
-- **Data layer:** Donation records, partner profiles, and application state.
-- **AI/matching layer:** Compatibility scoring and optional natural-language explanations.
+FoodBridge AI can be understood through four logical layers.
 
-The initial prototype may use local browser storage and sample data. A production deployment would require a shared backend, persistent database, access control, and verified partner records.
+**1. Presentation Layer**
 
-## 🚀 Getting Started
+Provides the interface for viewing donations, entering information, discovering opportunities, and monitoring donation activity.
 
-### Prerequisites
+**2. Application Logic Layer**
 
-- Node.js and npm installed.
-- Git installed.
-- An AI API key only if the optional AI integration is enabled.
+Handles form validation, donation operations, matching criteria, and permitted status transitions.
 
-### Installation
+**3. Data Layer**
 
-```bash
-git clone YOUR_GITHUB_REPOSITORY_URL
-cd foodbridge-ai
-npm install
-npm run dev
-```
+Stores donation records, partner information, and application state according to the configured storage solution.
 
-Open the local URL printed by Vite in your terminal.
+**4. AI and Matching Layer**
 
-### Environment Configuration
+Evaluates donation-to-partner compatibility and, where integrated, generates explanations for recommendations.
 
-If your implementation uses an AI API, configure the key through a secure backend environment variable.
+### Future Production Architecture
 
-```env
-AI_API_KEY=your_api_key_here
-```
+A production-ready deployment could introduce a shared backend, persistent database, verified user accounts, access controls, secure AI integration, and notification services.
 
-Do not commit `.env` files or expose private API keys in frontend code. The variable name above is illustrative; use the name expected by your implementation.
+## 🎯 Problem-Solving Approach
 
-### Build for Production
+FoodBridge AI focuses on three practical objectives:
 
-```bash
-npm run build
-```
+- **Reduce coordination friction:** Make donation information easier to discover and act upon.
+- **Improve matching decisions:** Help identify partners whose capacity and collection arrangements suit a donation.
+- **Increase transparency:** Provide clearer donation status tracking and activity reporting.
 
-Run these commands from the project directory. Follow the actual package scripts and setup instructions in the repository if they differ.
+Rather than attempting to solve every aspect of food insecurity, the project focuses on improving one important part of the process: coordinating surplus food donations.
 
-## 📊 Impact Measurement
+## 📊 Measuring Impact
 
-FoodBridge is designed to help monitor:
+FoodBridge AI is designed to support the measurement of:
 
-- Donations created and accepted.
-- Meals recorded in completed donations.
-- Collection and delivery completion rates.
-- Time remaining before collection deadlines.
-- Estimated food waste avoided, when a defensible estimation method is available.
+- Donations created and accepted
+- Meals recorded in completed donations
+- Successful collection and delivery rates
+- Time between listing a donation and confirming collection
+- Estimated food waste avoided, when supported by a defensible calculation method
 
-Impact numbers must come from recorded activity or clearly identified sample data. Estimated values should never be presented as independently verified outcomes.
+These metrics can help evaluate the platform during a future pilot.
+
+**Important:** Demonstration statistics and estimated outcomes must be labelled clearly. They should not be presented as verified real-world impact without supporting records.
 
 ## 🔐 Safety, Privacy, and Responsible Use
 
-- Collect only the information needed to coordinate donations.
-- Use verified partner information in real deployments.
-- Apply appropriate food-handling, storage, transport, and local food-safety requirements.
-- Confirm pickup arrangements with the relevant parties.
-- Do not treat AI recommendations as proof that food is safe to consume.
-- Protect API credentials and personal information.
-- Clearly distinguish demonstration data from real-world outcomes.
+Responsible food rescue requires more than matching donors and recipients.
+
+FoodBridge AI recognizes the importance of:
+
+- Following applicable food-safety, storage, handling, and transportation requirements.
+- Confirming pickup arrangements with the relevant parties.
+- Using verified partner information in real-world deployments.
+- Protecting personal information and API credentials.
+- Distinguishing demonstration data from real donation records.
+- Treating automated recommendations as assistance rather than a guarantee of safety or delivery.
 
 ## 🧪 Testing and Validation
 
-Before a release, validate the following:
+The following checks are recommended before considering the application ready for broader use:
 
-- Donation creation and required-field validation.
-- Donation filtering and discovery.
-- NGO acceptance and duplicate-acceptance prevention.
-- Valid donation status transitions.
-- Matching results for different quantities and deadlines.
-- Dashboard consistency after status changes.
-- Application behavior when an AI service is unavailable.
-- Responsive layout and basic accessibility.
+- Donation creation and input validation
+- Donation listing and filtering
+- NGO acceptance and duplicate-acceptance prevention
+- Valid donation status transitions
+- Matching behavior for different quantities and deadlines
+- Dashboard consistency after donation updates
+- Handling of unavailable AI services
+- Responsive layout and accessibility
+- Secure configuration and deployment
 
-Document the tests that have actually been run and their results.
+Only tests that have actually been executed should be reported as passed.
 
 ## 🔮 Future Scope
 
-- Verified NGO and donor accounts.
-- Shared backend and database.
-- Location-based matching with a mapping service.
-- Notifications for urgent donations and pickup confirmations.
-- Improved demand and surplus forecasting using historical data.
-- Multi-language support.
-- Partner verification and audit trails.
-- Deployment for a pilot on a college campus.
+FoodBridge AI can be extended with the following capabilities:
 
-## 🎯 Hackathon Objective
+- **Verified donor and NGO accounts:** Establish trust between participating organizations.
+- **Shared database and backend:** Synchronize donations and status updates across users and devices.
+- **Location-based matching:** Improve partner recommendations using distance and travel-time information.
+- **Smart notifications:** Alert partners about urgent donations and pickup confirmations.
+- **Surplus prediction:** Explore forecasting based on historical donation and demand data.
+- **Multilingual support:** Make the platform more accessible to diverse communities.
+- **Audit trail:** Maintain a transparent record of donation acceptance and handover.
+- **Campus pilot:** Test the workflow with participating college canteens, event organizers, and verified community partners.
 
-FoodBridge AI explores how intelligent matching and a simple digital workflow can improve the coordination of surplus food donations.
+## 🏆 Hackathon Objective
 
-The prototype focuses on three priorities: a working end-to-end donation flow, transparent partner recommendations, and measurable donation activity.
+FoodBridge AI demonstrates how digital workflows and intelligent matching can help improve the coordination of surplus food donations.
+
+The project is built around three priorities:
+
+1. A simple and accessible user experience.
+2. More informed donation-to-partner matching.
+3. Transparent tracking of donation activity.
+
+Our long-term vision is to help create a more connected food-rescue ecosystem where usable surplus food has a better chance of reaching communities that need it.
 
 ## 👥 Team
 
-**Project:** FoodBridge AI  
-**Team:** [Your Team Name]  
-**Contributors:** [Add verified GitHub usernames and team members]  
-**Event:** [Hackathon Name]  
-**Institution:** [Institution Name]
+**Team Name:** Domain Expansion
+
+**Project:** FoodBridge AI
+
+**Team Members:**
+- Gaurav Sethi
+- Priyal Singhal
+
+**Project Theme:** Food for Everyone
+
+**Live Demo:** https://food-bridge-ai-2rur.vercel.app/
 
 ## 📄 License
 
-[Add the license selected for this repository.]
+A license has not been specified yet. Add a suitable license after confirming that the team has permission to license the included source code and assets.
 
 ---
 
-**FoodBridge AI — Turning Surplus into Support.**
-
-
-
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+<p align="center">
+  <strong>🌱 FoodBridge AI — Turning Surplus into Support.</strong>
+  <br/>
+  <em>Good Food. Better Futures.</em>
+</p>
